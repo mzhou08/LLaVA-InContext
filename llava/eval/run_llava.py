@@ -107,12 +107,12 @@ def eval_model(args):
     conv = conv_templates[args.conv_mode].copy()
 
     if isinstance(qs, InContextLearningPrompt):
-        # conv.system += qs.prompt    # add to system prompt
-        # conv.append_message(conv.roles[0], qs.prompt)   # add as first user message
+        # conv.system += qs.prompt    # add prompt to system prompt
+        conv.append_message(conv.roles[0], qs.prompt)   # add prompt as first user message
 
         for q in qs.examples:
             conv.append_message(conv.roles[0], q[0])    # example input
-            # conv.append_message(conv.roles[0], qs.prompt)   # add for each example
+            # conv.append_message(conv.roles[0], qs.prompt)   # add prompt for each example
             conv.append_message(conv.roles[1], q[1])    # assistant response
 
         conv.append_message(conv.roles[0], qs.test)

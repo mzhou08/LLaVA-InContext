@@ -16,6 +16,7 @@ from llava.mm_utils import (
     tokenizer_image_token,
     get_model_name_from_path,
     KeywordsStoppingCriteria,
+    InContextLearningPrompt,
 )
 
 from PIL import Image
@@ -59,16 +60,30 @@ def eval_model(args):
 
     qs = args.query
     image_token_se = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN
-    if IMAGE_PLACEHOLDER in qs:
-        if model.config.mm_use_im_start_end:
-            qs = re.sub(IMAGE_PLACEHOLDER, image_token_se, qs)
-        else:
-            qs = re.sub(IMAGE_PLACEHOLDER, DEFAULT_IMAGE_TOKEN, qs)
+
+    def replace_image_tokens(q, has_image=True):
+        if IMAGE_PLACEHOLDER in q:
+            if model.config.mm_use_im_start_end:
+                return re.sub(IMAGE_PLACEHOLDER, image_token_se, q)
+            else:
+                return re.sub(IMAGE_PLACEHOLDER, DEFAULT_IMAGE_TOKEN, q)
+        elif has_image: # if the prompt has an image, add image token
+            if model.config.mm_use_im_start_end:
+                return image_token_se + "\n" + q
+            else:
+                return DEFAULT_IMAGE_TOKEN + "\n" + q
+
+        return q
+
+    if isinstance(qs, InContextLearningPrompt):
+        qs.prompt = replace_image_tokens(qs.prompt, has_image=False)
+
+        for i, example in enumerate(qs.examples):
+            qs.examples[i] = [replace_image_tokens(text, has_image=False) for text in example]
+
+        qs.test = replace_image_tokens(qs.test, has_image=False)
     else:
-        if model.config.mm_use_im_start_end:
-            qs = image_token_se + "\n" + qs
-        else:
-            qs = DEFAULT_IMAGE_TOKEN + "\n" + qs
+        qs = replace_image_tokens(qs)
 
     if "llama-2" in model_name.lower():
         conv_mode = "llava_llama_2"
@@ -88,11 +103,30 @@ def eval_model(args):
     else:
         args.conv_mode = conv_mode
 
+    # creates the conversation and message history
     conv = conv_templates[args.conv_mode].copy()
-    conv.append_message(conv.roles[0], qs)
+
+    if isinstance(qs, InContextLearningPrompt):
+        # conv.system += qs.prompt    # add to system prompt
+        # conv.append_message(conv.roles[0], qs.prompt)   # add as first user message
+
+        for q in qs.examples:
+            conv.append_message(conv.roles[0], q[0])    # example input
+            # conv.append_message(conv.roles[0], qs.prompt)   # add for each example
+            conv.append_message(conv.roles[1], q[1])    # assistant response
+
+        conv.append_message(conv.roles[0], qs.test)
+        # conv.append_message(conv.roles[0], qs.prompt) # add after example 
+    else:
+        conv.append_message(conv.roles[0], qs[0])   # user input
+    
+    # add placeholder for assistant response
     conv.append_message(conv.roles[1], None)
+
+    # format conversation into one string
     prompt = conv.get_prompt()
 
+    # split args.image_file into multiple images (split on args.sep)
     image_files = image_parser(args)
     images = load_images(image_files)
     images_tensor = process_images(

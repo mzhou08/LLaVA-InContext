@@ -1,6 +1,7 @@
 from PIL import Image
 from io import BytesIO
 import base64
+from enum import Enum
 
 import torch
 from transformers import StoppingCriteria
@@ -102,3 +103,9 @@ class KeywordsStoppingCriteria(StoppingCriteria):
         for i in range(output_ids.shape[0]):
             outputs.append(self.call_for_batch(output_ids[i].unsqueeze(0), scores))
         return all(outputs)
+
+class InContextLearningPrompt:
+    def __init__(self, prompt, examples, test):
+        self.prompt = prompt
+        self.examples = examples
+        self.test = test

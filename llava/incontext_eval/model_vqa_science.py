@@ -116,6 +116,8 @@ def eval_model(args):
         # combine all images
         if len(all_images) > 0:
             all_images = torch.stack(all_images)
+        else:
+            all_images = None
 
         with torch.inference_mode():
             output_ids = model.generate(

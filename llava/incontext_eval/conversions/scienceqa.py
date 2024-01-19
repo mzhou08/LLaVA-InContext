@@ -4,25 +4,17 @@ import random
 import argparse
 
 def convert_scienceqa(args):
-    import pdb; pdb.set_trace()
-    train_pids = []
-    test_pids = []
+    with open(args.train_questions_file, "r") as f:
+        train_qns = json.load(f)
+        num_train_qns = len(train_qns)
 
-    with open(args.splits_file, "r") as f:
-        splits = json.load(f)
-
-        train_pids = splits["train"]
-        test_pids = set(splits["test"])
-
-    with open(args.question_file, "r") as f:
-        questions = json.load(f)
-
-        test_qns = [qn for pid, qn in questions.items() if pid in test_pids]
+    with open(args.test_questions_file, "r") as f:
+        test_qns = json.load(f)
 
     for qn in test_qns:
-        example_pids = random.sample(train_pids, args.num_examples)
+        example_idxs = random.sample(list(range(num_train_qns)), args.num_examples)
 
-        qn["examples"] = example_pids        
+        qn["examples"] = example_idxs        
 
     with open(args.output_file, "w") as f:
         json.dump(test_qns, f)
@@ -30,8 +22,8 @@ def convert_scienceqa(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--question-file", type=str, default="")
-    parser.add_argument("--splits-file", type=str, default="")
+    parser.add_argument("--train-questions-file", type=str, default="")
+    parser.add_argument("--test-questions-file", type=str, default="")
     parser.add_argument("--output-file", type=str, default="")
     parser.add_argument("--num-examples", type=int, default=3)
 

@@ -75,6 +75,9 @@ def eval_model(args):
 
 
     for i, line in enumerate(tqdm(incontext_questions)):
+        if i == 100:
+            raise Exception("Only evaluating 100 examples for debugging")
+        
         idx = line["id"]
 
         example_idxs = line["examples"]
@@ -94,13 +97,15 @@ def eval_model(args):
             # append the example answer to the prompt
             conv.append_message(conv.roles[1], example["conversations"][1]["value"])
             if example_images is not None:
-                all_images.append(example_images)
+                all_images.append(
+                    example_images.squeeze(0) # removing the first dimension
+                )
 
         # append the actual question to the conversation
         qs, cur_prompt, qs_images = format_question(line, is_example=False)
         conv.append_message(conv.roles[0], qs)
         if qs_images is not None:
-            all_images.append(qs_images)
+            all_images.append(qs_images.squeeze(0))
 
         # import pdb; pdb.set_trace()
 
@@ -118,6 +123,8 @@ def eval_model(args):
             all_images = torch.stack(all_images)
         else:
             all_images = None
+
+        import pdb; pdb.set_trace()
 
         with torch.inference_mode():
             output_ids = model.generate(
@@ -139,6 +146,22 @@ def eval_model(args):
         if outputs.endswith(stop_str):
             outputs = outputs[:-len(stop_str)]
         outputs = outputs.strip()
+
+        model_ans = outputs[-2:-1] if len(outputs) > 1 else outputs
+
+        if model_ans != line['conversations'][1]['value'][-2:-1]:
+            # print(i)
+            continue
+            # print(
+            #     f"""
+            #     Examples: {[example['id'] for example in example_questions]}
+            #     {' | '.join([example['conversations'][0]['value'] + "Answer:" + example['conversations'][1]['value'] for example in example_questions])}
+            #     Questions: {line['conversations'][0]['value']}
+            #     True Answer: {line['conversations'][1]['value']}
+            #     Model Prediction: {outputs}
+            #     """
+            # )
+            # import pdb; pdb.set_trace()
 
         # prompt for answer
         if args.answer_prompter:

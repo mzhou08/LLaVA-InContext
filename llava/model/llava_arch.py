@@ -116,7 +116,7 @@ class LlavaMetaForCausalLM(ABC):
             image_features = self.encode_images(concat_images)
             split_sizes = [image.shape[0] for image in images]
             image_features = torch.split(image_features, split_sizes, dim=0)
-            image_features = [x.flatten(0, 1).to(self.device) for x in image_features]
+            image_features = [x.flatten(0, 1).to(self.device) for x in image_features] # problematic line with batching: will concat multiple image features into one big one
         else:
             image_features = self.encode_images(images).to(self.device)
 
@@ -148,6 +148,7 @@ class LlavaMetaForCausalLM(ABC):
         new_labels = []
         cur_image_idx = 0
         for batch_idx, cur_input_ids in enumerate(input_ids):
+            import pdb; pdb.set_trace()
             num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
             if num_images == 0:
                 cur_image_features = image_features[cur_image_idx]

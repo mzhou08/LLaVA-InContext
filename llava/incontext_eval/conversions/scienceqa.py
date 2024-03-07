@@ -6,7 +6,9 @@ import argparse
 def convert_scienceqa(args):
     with open(args.train_questions_file, "r") as f:
         train_qns = json.load(f)
-        num_train_qns = len(train_qns)
+
+        text_only_question_idxs = [i for i in range(len(train_qns)) if "image" not in train_qns[i]]
+        image_question_idxs = [i for i in range(len(train_qns)) if "image" in train_qns[i]]
 
     with open(args.test_questions_file, "r") as f:
         test_qns = json.load(f)
@@ -16,16 +18,22 @@ def convert_scienceqa(args):
 
     for qn in test_qns:
         example_idxs = [0 for _ in range(args.num_examples)]
-        while (
-            args.num_examples > 1 and (
-            all(
-                get_answer(i) == get_answer(example_idxs[0])
-                for i in example_idxs
-            )
-            or get_answer(example_idxs[0]) == get_answer(example_idxs[1])
-            )
-        ):
-            example_idxs = random.sample(list(range(num_train_qns)), args.num_examples)
+        while True:
+            if "image" not in qn:
+                # no image, only sample from questions with no image
+                example_idxs = random.sample(text_only_question_idxs, args.num_examples)
+            else:
+                example_idxs = random.sample(image_question_idxs, args.num_examples)
+
+            if args.num_examples <= 1:
+                break
+
+            # all answers are the same
+            if all(get_answer(i) == get_answer(example_idxs[0]) for i in example_idxs):
+                continue
+    
+            break
+            
 
         qn["examples"] = example_idxs        
 

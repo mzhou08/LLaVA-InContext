@@ -148,7 +148,6 @@ class LlavaMetaForCausalLM(ABC):
         new_labels = []
         cur_image_idx = 0
         for batch_idx, cur_input_ids in enumerate(input_ids):
-            import pdb; pdb.set_trace()
             num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
             if num_images == 0:
                 cur_image_features = image_features[cur_image_idx]
